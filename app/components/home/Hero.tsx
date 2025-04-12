@@ -1,4 +1,5 @@
-import { Button } from "@/components/ui/button";
+"use client";
+import SearchPokemon from "../pokemon/SearchPokemon";
 
 export default function Hero() {
 	return (
@@ -27,19 +28,9 @@ export default function Hero() {
 					Pokémon, bringing nostalgic vibes to
 					your next creative adventure.
 				</p>
-				<form className="flex border border-primary/30 rounded-full p-2 mt-8 max-w-lg mx-auto">
-					<input
-						type="text"
-						placeholder="Enter a pokémon name"
-						className="bg-transparent px-4 text-foreground outline-none md:flex-1 w-full"
-					/>
-					<Button
-						className="text-muted-foreground rounded-full whitespace-nowrap h-10"
-						type="submit"
-					>
-						Catch the colors !
-					</Button>
-				</form>
+				<div className="text-center mt-10">
+					<SearchPokemon onSearch={() => {}} />
+				</div>
 			</div>
 		</section>
 	);

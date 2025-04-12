@@ -69,18 +69,18 @@ export default function Features() {
 					</div>
 				</FeatCard>
 				<FeatCard
-					title="Community at the Heart of Our Project"
-					description="More than just a tool, join a community of designers and Pokémon enthusiasts"
+					title="Fun and Engaging"
+					description="Explore color palettes in a fun and engaging way"
 					className="md:col-span-2 md:col-start-2 lg:col-span-1 lg:col-start-auto"
 				>
 					<div className="aspect-video flex items-center justify-center">
 						<p className="text-4xl font-extrabold text-white/20 text-center">
-							We&apos;re proud to have
-							an{" "}
+							Discover{" "}
 							<span className="bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent">
-								extraordinary
+								color palettes
 							</span>{" "}
-							community.
+							in a fun and engaging
+							way.
 						</p>
 					</div>
 				</FeatCard>

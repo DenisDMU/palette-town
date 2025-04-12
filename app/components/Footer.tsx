@@ -1,7 +1,6 @@
 const footerLinks = [
-	{ href: "#", label: "More informations" },
-	{ href: "#", label: "MIT" },
-	{ href: "#", label: "FAQ" },
+	{ href: "https://github.com/DenisDMU", label: "My github" },
+	{ href: "#", label: "Home" },
 ];
 
 export default function Footer() {
@@ -22,6 +21,8 @@ export default function Footer() {
 											link.label
 										}
 										className="text-white/50 text-sm"
+										target="_blank"
+										rel="noopener noreferrer"
 									>
 										{
 											link.label

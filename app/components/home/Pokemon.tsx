@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import Tag from "./Tag";
 import AdventureCol from "./PokemonCol";
 
-// Define types for Pokémon data
 type PokemonSpecies = {
 	flavor_text_entries: {
 		flavor_text: string;
