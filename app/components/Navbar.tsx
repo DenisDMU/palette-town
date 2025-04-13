@@ -171,19 +171,19 @@ export default function Navbar() {
 											Home
 										</Link>
 										<Link
-											href="/"
+											href="/pokemon"
 											className="hover:text-primary transition-colors"
 										>
 											Pokemons
 										</Link>
 										<Link
-											href="/"
+											href="/api"
 											className="hover:text-primary transition-colors"
 										>
 											API
 										</Link>
 										<Link
-											href="/"
+											href="/docs"
 											className="hover:text-primary transition-colors"
 										>
 											Docs
