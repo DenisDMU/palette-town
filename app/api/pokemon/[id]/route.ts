@@ -1,6 +1,6 @@
 import { Colors } from "@/app/helpers/Colors";
 import { fetchPokemon } from "@/app/helpers/FetchPokemon";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 // Cache simple en mémoire
 const CACHE = new Map<
@@ -30,12 +30,12 @@ const CACHE = new Map<
 const CACHE_TTL = 3600000; // 1 heure en millisecondes
 
 export async function GET(
-	request: Request,
-	context: Promise<{ params: { id: string } }>
+	request: NextRequest,
+	{ params }: { params: Promise<{ id: string }> }
 ) {
+	const { id } = await params;
+
 	try {
-		const { params } = await context;
-		const id = params.id;
 		const cacheKey = `pokemon-${id}`;
 
 		// Vérifier le cache

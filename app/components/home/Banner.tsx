@@ -18,7 +18,7 @@ export default function Banner() {
 		);
 
 		// animation.current.speed = 0.5;
-	}, []);
+	}, [animate, scope]);
 	useEffect(() => {
 		if (animation.current) {
 			if (isHovered) {

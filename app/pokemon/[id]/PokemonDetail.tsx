@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { VolumeIcon, ArrowLeft, ArrowRight } from "lucide-react";
@@ -103,46 +103,49 @@ export default function PokemonDetailClient({ id }: { id: string }) {
 	const [animate, setAnimate] = useState<boolean>(false);
 	const audioRef = useRef<HTMLAudioElement | null>(null);
 
-	// Fonction récursive pour extraire toutes les évolutions
-	const extractAllEvolutions = async (
-		chainData: EvolvesTo[],
-		evolutions: EvolutionDetail[]
-	) => {
-		for (const evolution of chainData) {
-			try {
-				const response = await fetch(
-					`https://pokeapi.co/api/v2/pokemon/${evolution.species.name}`
-				);
-				const data = await response.json();
+	// Mémoriser la fonction avec useCallback pour éviter les rendus infinis
+	const extractAllEvolutions = useCallback(
+		async (
+			chainData: EvolvesTo[],
+			evolutions: EvolutionDetail[]
+		) => {
+			for (const evolution of chainData) {
+				try {
+					const response = await fetch(
+						`https://pokeapi.co/api/v2/pokemon/${evolution.species.name}`
+					);
+					const data = await response.json();
 
-				evolutions.push({
-					id: data.id,
-					name: data.name,
-					sprites: {
-						front_default:
-							data.sprites
-								.front_default,
-					},
-				});
+					evolutions.push({
+						id: data.id,
+						name: data.name,
+						sprites: {
+							front_default:
+								data.sprites
+									.front_default,
+						},
+					});
 
-				// Récursion pour les évolutions suivantes
-				if (
-					evolution.evolves_to &&
-					evolution.evolves_to.length > 0
-				) {
-					await extractAllEvolutions(
-						evolution.evolves_to,
-						evolutions
+					// Récursion pour les évolutions suivantes
+					if (
+						evolution.evolves_to &&
+						evolution.evolves_to.length > 0
+					) {
+						await extractAllEvolutions(
+							evolution.evolves_to,
+							evolutions
+						);
+					}
+				} catch (err) {
+					console.error(
+						`Error fetching evolution ${evolution.species.name}:`,
+						err
 					);
 				}
-			} catch (err) {
-				console.error(
-					`Error fetching evolution ${evolution.species.name}:`,
-					err
-				);
 			}
-		}
-	};
+		},
+		[]
+	);
 
 	useEffect(() => {
 		const fetchData = async () => {
@@ -158,22 +161,22 @@ export default function PokemonDetailClient({ id }: { id: string }) {
 				const secondaryType = data.types[1]?.type
 					?.name as keyof typeof Colors.type;
 
-				setBackgroundColor(
-					Colors.type[primaryType] || "#FFFFFF"
-				);
-				setTextColor(
+				const bgColor =
+					Colors.type[primaryType] || "#FFFFFF";
+				const txtColor =
 					Colors.textColor[primaryType] ||
-						"#000000"
-				);
+					"#000000";
+
+				setBackgroundColor(bgColor);
+				setTextColor(txtColor);
 
 				// Couleur secondaire
+				let secColor;
 				if (
 					secondaryType &&
 					Colors.type[secondaryType]
 				) {
-					setSecondaryColor(
-						Colors.type[secondaryType]
-					);
+					secColor = Colors.type[secondaryType];
 				} else {
 					// Sinon, couleur complémentaire
 					const primaryHex =
@@ -206,22 +209,15 @@ export default function PokemonDetailClient({ id }: { id: string }) {
 						Math.max(0, 255 - b + 40)
 					);
 
-					setSecondaryColor(
-						`#${secondaryR
-							.toString(16)
-							.padStart(
-								2,
-								"0"
-							)}${secondaryG
-							.toString(16)
-							.padStart(
-								2,
-								"0"
-							)}${secondaryB
-							.toString(16)
-							.padStart(2, "0")}`
-					);
+					secColor = `#${secondaryR
+						.toString(16)
+						.padStart(2, "0")}${secondaryG
+						.toString(16)
+						.padStart(2, "0")}${secondaryB
+						.toString(16)
+						.padStart(2, "0")}`;
 				}
+				setSecondaryColor(secColor);
 
 				// Récupérer la description et les données d'évolution
 				if (data.species?.url) {
@@ -234,7 +230,7 @@ export default function PokemonDetailClient({ id }: { id: string }) {
 							await speciesResponse.json();
 
 						// Trouver une description en anglais uniquement
-						const description =
+						const descEntry =
 							speciesData.flavor_text_entries.find(
 								(entry) =>
 									entry
@@ -243,12 +239,14 @@ export default function PokemonDetailClient({ id }: { id: string }) {
 									"en"
 							);
 
-						if (description) {
-							setDescription(
-								description.flavor_text.replace(
+						if (descEntry) {
+							const cleanDesc =
+								descEntry.flavor_text.replace(
 									/\f/g,
 									" "
-								)
+								);
+							setDescription(
+								cleanDesc
 							);
 						}
 
@@ -354,8 +352,9 @@ export default function PokemonDetailClient({ id }: { id: string }) {
 
 		setAnimate(false); // Réinitialiser l'animation à chaque changement d'ID
 		fetchData();
-	}, [id]);
+	}, [id, extractAllEvolutions]); // Ajout de extractAllEvolutions aux dépendances
 
+	// Reste du code inchangé...
 	const handlePreviousPokemon = () => {
 		const prevId = Math.max(1, parseInt(id) - 1);
 		router.push(`/pokemon/${prevId}`);
@@ -457,7 +456,8 @@ export default function PokemonDetailClient({ id }: { id: string }) {
 		position: "relative",
 		backgroundColor: `${secondaryColor}`,
 	};
-	// Composant du bouton Copy CSS à ajouter dans PokemonDetail.tsx
+
+	// Composant du bouton Copy CSS
 	const CopyCssButton = ({
 		primaryColor,
 		secondaryColor,
@@ -533,6 +533,7 @@ export default function PokemonDetailClient({ id }: { id: string }) {
 			</Button>
 		);
 	};
+
 	return (
 		<>
 			{/* Navigation controls */}
@@ -636,18 +637,25 @@ export default function PokemonDetailClient({ id }: { id: string }) {
 								}}
 							>
 								{spriteUrl && (
-									<img
+									<Image
 										src={
 											spriteUrl
 										}
 										alt={
 											pokemonData.name
 										}
+										width={
+											128
+										}
+										height={
+											128
+										}
 										className="w-full h-full object-contain pixelated"
 										style={{
 											imageRendering:
 												"pixelated",
 										}}
+										unoptimized
 									/>
 								)}
 							</div>
@@ -1009,7 +1017,7 @@ export default function PokemonDetailClient({ id }: { id: string }) {
 															{evolution
 																.sprites
 																.front_default && (
-																<img
+																<Image
 																	src={
 																		evolution
 																			.sprites
@@ -1018,11 +1026,18 @@ export default function PokemonDetailClient({ id }: { id: string }) {
 																	alt={
 																		evolution.name
 																	}
+																	width={
+																		64
+																	}
+																	height={
+																		64
+																	}
 																	className="w-full h-full object-contain pixelated"
 																	style={{
 																		imageRendering:
 																			"pixelated",
 																	}}
+																	unoptimized
 																/>
 															)}
 														</div>

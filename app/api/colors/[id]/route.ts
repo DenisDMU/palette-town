@@ -1,14 +1,13 @@
 import { Colors } from "@/app/helpers/Colors";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
-	request: Request,
-	context: { params: { id: string } }
+	request: NextRequest,
+	{ params }: { params: Promise<{ id: string }> }
 ) {
-	try {
-		const { params } = context;
-		const id = params.id;
+	const { id } = await params;
 
+	try {
 		// Récupérer les données pour le type de Pokémon
 		const typeColors = Colors.type[id as keyof typeof Colors.type];
 		const textColor =

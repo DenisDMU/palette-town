@@ -52,6 +52,7 @@ export default function ColorPalette({ imageUrl }: ColorPaletteProps) {
 	};
 
 	// Extraction de couleurs à partir de l'image
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	const extractColors = (url: string): void => {
 		const img = new Image();
 		img.crossOrigin = "Anonymous";
@@ -255,7 +256,7 @@ export default function ColorPalette({ imageUrl }: ColorPaletteProps) {
 	useEffect(() => {
 		if (!imageUrl) return;
 		extractColors(imageUrl);
-	}, [imageUrl]);
+	}, [imageUrl, extractColors]);
 
 	// Copier la couleur au format actuel
 	const copyToClipboard = (color: Color) => {
@@ -336,6 +337,23 @@ export default function ColorPalette({ imageUrl }: ColorPaletteProps) {
 										selectedColor.hex,
 								}}
 							/>
+							<div>
+								<h3 className="font-medium">
+									Selected
+									Color
+								</h3>
+								<p className="text-sm text-gray-500 dark:text-gray-400">
+									{palette.find(
+										(
+											p
+										) =>
+											p.color ===
+											selectedColor.hex
+									)
+										?.name ||
+										"Custom"}
+								</p>
+							</div>
 						</div>
 
 						<div className="flex gap-2">
