@@ -36,6 +36,7 @@ export default function PokemonDetailClient({ id }: { id: string }) {
 	const [textColor, setTextColor] = useState<string>("#000000");
 	const [error, setError] = useState<string | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
+	const [showShinySprite, setShowShinySprite] = useState<boolean>(false);
 
 	useEffect(() => {
 		const getPokemonData = async () => {
@@ -393,50 +394,64 @@ export default function PokemonDetailClient({ id }: { id: string }) {
 						</div>
 					</div>
 				</div>
-				<div className="md:col-span-2 mt-8">
-					<div className="p-4 bg-white rounded-xl shadow-sm">
+
+				<div className="p-4 bg-white rounded-xl shadow-sm mt-6">
+					<div className="flex justify-between items-center mb-4">
 						<h2
-							className="text-xl font-bold mb-4"
+							className="text-xl font-bold"
 							style={{
 								color: textColor,
 							}}
 						>
-							Artwork Palette
+							PALETTE
 						</h2>
-						<ColorPalette
-							imageUrl={
-								pokemonData!
-									.sprites
-									.other[
-									"official-artwork"
-								]
-									?.front_default ||
-								pokemonData!
-									.sprites
-									.front_default ||
-								"/assets/default-image.png"
-							}
-						/>
+
+						{pokemonData!.sprites
+							.front_shiny && (
+							<div className="flex items-center gap-2">
+								<span className="text-sm text-gray-500 uppercase font-semibold">
+									{showShinySprite
+										? "Shiny"
+										: "Normal"}
+								</span>
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() =>
+										setShowShinySprite(
+											!showShinySprite
+										)
+									}
+									style={{
+										borderColor:
+											textColor,
+										color: textColor,
+										fontWeight: "bold",
+										textTransform:
+											"uppercase",
+									}}
+								>
+									{showShinySprite
+										? "Normal"
+										: "Shiny"}
+								</Button>
+							</div>
+						)}
 					</div>
 
-					<div className="p-4 bg-white rounded-xl shadow-sm mt-6">
-						<h2
-							className="text-xl font-bold mb-4"
-							style={{
-								color: textColor,
-							}}
-						>
-							Sprite Palette
-						</h2>
-						<ColorPalette
-							imageUrl={
-								pokemonData!
-									.sprites
-									.front_default ||
-								"/assets/default-image.png"
-							}
-						/>
-					</div>
+					<ColorPalette
+						imageUrl={
+							showShinySprite
+								? pokemonData!
+										.sprites
+										.front_shiny ||
+								  "/assets/default-image.png"
+								: pokemonData!
+										.sprites
+										.front_default ||
+								  "/assets/default-image.png"
+						}
+					/>
 				</div>
 			</div>
 		</section>

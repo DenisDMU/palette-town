@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { CheckIcon, CopyIcon } from "lucide-react";
 // Utilisation de culori (Color.js) pour la manipulation de couleurs
-import { rgb, hsl, formatHex, formatRgb, formatHsl } from "culori";
+import convert from "color-convert";
 
 interface ColorPaletteProps {
 	imageUrl: string;
@@ -30,23 +30,21 @@ export default function ColorPalette({ imageUrl }: ColorPaletteProps) {
 	const [error, setError] = useState<boolean>(false);
 
 	// Convertir une couleur dans les trois formats
-	// Convertir une couleur dans les trois formats
 	const convertToAllFormats = (hexColor: string): Color => {
 		try {
-			const colorObj = rgb(hexColor);
-			const hslColor = hsl(colorObj);
+			// Enlever le # du début si présent
+			const cleanHex = hexColor.replace("#", "");
 
-			// Créer un format HSL propre avec des valeurs arrondies
-			const h = Math.round((hslColor?.h || 0) * 360);
-			const s = Math.round((hslColor?.s || 0) * 100);
-			const l = Math.round((hslColor?.l || 0) * 100);
+			// Convertir hex vers rgb
+			const rgbArray = convert.hex.rgb(cleanHex);
 
-			const hslFormatted = `hsl(${h}, ${s}%, ${l}%)`;
+			// Convertir hex vers hsl
+			const hslArray = convert.hex.hsl(cleanHex);
 
 			return {
-				hex: formatHex(colorObj) || "",
-				rgb: formatRgb(colorObj) || "",
-				hsl: hslFormatted,
+				hex: hexColor.toUpperCase(), // Normaliser en majuscules
+				rgb: `rgb(${rgbArray[0]}, ${rgbArray[1]}, ${rgbArray[2]})`,
+				hsl: `hsl(${hslArray[0]}, ${hslArray[1]}%, ${hslArray[2]}%)`,
 			};
 		} catch {
 			return { hex: hexColor, rgb: "", hsl: "" };
@@ -274,9 +272,6 @@ export default function ColorPalette({ imageUrl }: ColorPaletteProps) {
 	if (palette.length === 0) {
 		return (
 			<div className="py-6">
-				<h2 className="text-xl font-bold mb-4">
-					Color Palette
-				</h2>
 				<div className="h-4 w-32 bg-gray-200 animate-pulse rounded mb-4"></div>
 				<div className="grid grid-cols-3 gap-3">
 					{[...Array(6)].map((_, i) => (
@@ -293,9 +288,6 @@ export default function ColorPalette({ imageUrl }: ColorPaletteProps) {
 	if (error) {
 		return (
 			<div className="py-6">
-				<h2 className="text-xl font-bold mb-4">
-					Color Palette
-				</h2>
 				<p className="text-red-500">
 					Failed to extract colors from image
 				</p>
@@ -305,10 +297,6 @@ export default function ColorPalette({ imageUrl }: ColorPaletteProps) {
 
 	return (
 		<div className="py-6">
-			<h2 className="text-xl font-bold mb-4">
-				Color Palette
-			</h2>
-
 			{/* Palette de couleurs */}
 			<div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-6">
 				{palette.map((swatch, index) => (
