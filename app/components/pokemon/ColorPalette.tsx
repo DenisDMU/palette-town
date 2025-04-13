@@ -1,405 +1,454 @@
 "use client";
-import { useEffect, useState } from "react";
-import { fetchPokemon } from "../../helpers/FetchPokemon";
-import { Colors } from "../../helpers/Colors";
-import Image from "next/image";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { CheckIcon, CopyIcon } from "lucide-react";
+// Utilisation de culori (Color.js) pour la manipulation de couleurs
+import { rgb, hsl, formatHex, formatRgb, formatHsl } from "culori";
 
-export default function PokemonDetail({ params }: { params: { id: string } }) {
-	interface PokemonData {
-		id: number;
-		name: string;
-		height: number;
-		weight: number;
-		types: { type: { name: string } }[];
-		abilities: { ability: { name: string } }[];
-		stats: { base_stat: number; stat: { name: string } }[];
-		sprites: {
-			front_default?: string;
-			back_default?: string;
-			front_shiny?: string;
-			back_shiny?: string;
-			other: {
-				"official-artwork": {
-					front_default?: string;
-				};
-			};
-		};
-	}
+interface ColorPaletteProps {
+	imageUrl: string;
+}
 
-	const [pokemonData, setPokemonData] = useState<PokemonData | null>(
-		null
+interface Color {
+	hex: string;
+	rgb: string;
+	hsl: string;
+}
+
+interface SwatchWithName {
+	name: string;
+	color: string;
+}
+
+export default function ColorPalette({ imageUrl }: ColorPaletteProps) {
+	const [palette, setPalette] = useState<SwatchWithName[]>([]);
+	const [selectedColor, setSelectedColor] = useState<Color | null>(null);
+	const [colorFormat, setColorFormat] = useState<"hex" | "rgb" | "hsl">(
+		"hex"
 	);
-	const [backgroundColor, setBackgroundColor] =
-		useState<string>("#FFFFFF");
-	const [textColor, setTextColor] = useState<string>("#000000");
-	const [error, setError] = useState<string | null>(null);
-	const [isLoading, setIsLoading] = useState(true);
+	const [copiedColor, setCopiedColor] = useState<string | null>(null);
+	const [error, setError] = useState<boolean>(false);
 
-	useEffect(() => {
-		const getPokemonData = async () => {
-			try {
-				setIsLoading(true);
-				setError(null);
-				const data = await fetchPokemon(params.id);
-				setPokemonData(data);
+	// Convertir une couleur dans les trois formats
+	// Convertir une couleur dans les trois formats
+	const convertToAllFormats = (hexColor: string): Color => {
+		try {
+			const colorObj = rgb(hexColor);
+			const hslColor = hsl(colorObj);
 
-				// Déterminer la couleur de fond et du texte en fonction du type principal
-				const primaryType = data.types[0]?.type
-					?.name as keyof typeof Colors.type;
-				setBackgroundColor(
-					Colors.type[primaryType] || "#FFFFFF"
+			// Créer un format HSL propre avec des valeurs arrondies
+			const h = Math.round((hslColor?.h || 0) * 360);
+			const s = Math.round((hslColor?.s || 0) * 100);
+			const l = Math.round((hslColor?.l || 0) * 100);
+
+			const hslFormatted = `hsl(${h}, ${s}%, ${l}%)`;
+
+			return {
+				hex: formatHex(colorObj) || "",
+				rgb: formatRgb(colorObj) || "",
+				hsl: hslFormatted,
+			};
+		} catch {
+			return { hex: hexColor, rgb: "", hsl: "" };
+		}
+	};
+
+	// Extraction de couleurs à partir de l'image
+	const extractColors = (url: string): void => {
+		const img = new Image();
+		img.crossOrigin = "Anonymous";
+
+		img.onload = () => {
+			const canvas = document.createElement("canvas");
+			const ctx = canvas.getContext("2d", {
+				willReadFrequently: true,
+			});
+			canvas.width = img.width;
+			canvas.height = img.height;
+
+			if (ctx) {
+				ctx.drawImage(img, 0, 0);
+
+				// Carte de fréquence des couleurs
+				const colorFrequency: Record<
+					string,
+					{ count: number; rgb: number[] }
+				> = {};
+
+				// Échantillonnage de pixels
+				const pixelData = ctx.getImageData(
+					0,
+					0,
+					canvas.width,
+					canvas.height
+				).data;
+				const step = Math.max(
+					1,
+					Math.floor(
+						(canvas.width * canvas.height) /
+							2000
+					)
 				);
-				setTextColor(
-					Colors.type[primaryType] || "#000000"
+
+				// Analyser les pixels et compter les fréquences des couleurs
+				for (
+					let i = 0;
+					i < pixelData.length;
+					i += 4 * step
+				) {
+					const r = pixelData[i];
+					const g = pixelData[i + 1];
+					const b = pixelData[i + 2];
+					const a = pixelData[i + 3];
+
+					// Ignorer les pixels transparents ou blancs
+					if (
+						a < 200 ||
+						(r > 240 && g > 240 && b > 240)
+					)
+						continue;
+
+					const key = `${r},${g},${b}`;
+					if (colorFrequency[key]) {
+						colorFrequency[key].count++;
+					} else {
+						colorFrequency[key] = {
+							count: 1,
+							rgb: [r, g, b],
+						};
+					}
+				}
+
+				// Trier les couleurs par fréquence
+				const sortedColors = Object.values(
+					colorFrequency
+				).sort((a, b) => b.count - a.count);
+
+				// Filtrer les couleurs similaires (éviter les doublons visuels)
+				const distinctColors = filterSimilarColors(
+					sortedColors,
+					30
 				);
-				// eslint-disable-next-line @typescript-eslint/no-unused-vars
-			} catch (error) {
-				setError(
-					"Unable to fetch Pokémon data. Please try again."
-				);
-			} finally {
-				setIsLoading(false);
+
+				// Prendre les 6 premières couleurs distinctes ou compléter avec des couleurs génériques
+				const colorEntries = distinctColors.slice(0, 6);
+
+				// Compléter si nécessaire pour avoir 6 couleurs
+				while (colorEntries.length < 6) {
+					const index = colorEntries.length;
+					const defaultColors = [
+						[255, 100, 100], // Rouge clair
+						[100, 255, 100], // Vert clair
+						[100, 100, 255], // Bleu clair
+						[255, 255, 100], // Jaune
+						[255, 100, 255], // Magenta
+						[100, 255, 255], // Cyan
+					];
+					colorEntries.push({
+						count: 0,
+						rgb: defaultColors[
+							index %
+								defaultColors.length
+						],
+					});
+				}
+
+				// Créer palette à partir des couleurs extraites
+				const colorNames = [
+					"Primary",
+					"Secondary",
+					"Tertiary",
+					"Quaternary",
+					"Quinary",
+					"Senary",
+				];
+				const swatches: SwatchWithName[] =
+					colorEntries.map((entry, index) => {
+						const hexColor = rgbToHex(
+							entry.rgb[0],
+							entry.rgb[1],
+							entry.rgb[2]
+						);
+						return {
+							name: colorNames[index],
+							color: hexColor,
+						};
+					});
+
+				setPalette(swatches);
+
+				if (swatches.length > 0) {
+					setSelectedColor(
+						convertToAllFormats(
+							swatches[0].color
+						)
+					);
+				}
 			}
 		};
 
-		getPokemonData();
-	}, [params.id]);
+		img.onerror = () => {
+			console.error(
+				"Erreur lors du chargement de l'image pour l'extraction des couleurs"
+			);
+			setError(true);
+		};
 
-	if (error) {
+		img.src = url;
+	};
+
+	// Filtrer les couleurs similaires (distance euclidienne)
+	const filterSimilarColors = (
+		colors: Array<{ count: number; rgb: number[] }>,
+		threshold: number
+	): Array<{ count: number; rgb: number[] }> => {
+		const result: Array<{ count: number; rgb: number[] }> = [];
+
+		for (const color of colors) {
+			let isDuplicate = false;
+
+			for (const uniqueColor of result) {
+				const distance = Math.sqrt(
+					Math.pow(
+						color.rgb[0] -
+							uniqueColor.rgb[0],
+						2
+					) +
+						Math.pow(
+							color.rgb[1] -
+								uniqueColor
+									.rgb[1],
+							2
+						) +
+						Math.pow(
+							color.rgb[2] -
+								uniqueColor
+									.rgb[2],
+							2
+						)
+				);
+
+				if (distance < threshold) {
+					isDuplicate = true;
+					break;
+				}
+			}
+
+			if (!isDuplicate) {
+				result.push(color);
+				if (result.length >= 6) break;
+			}
+		}
+
+		return result;
+	};
+
+	// Convertir RGB en HEX
+	const rgbToHex = (r: number, g: number, b: number): string => {
 		return (
-			<div className="pt-24 lg:pt-32 flex justify-center items-center w-full">
-				<div className="text-red-500 text-center">
-					<p>{error}</p>
-					<Link
-						href="/pokemon"
-						className="mt-4 inline-block"
-					>
-						<Button className="mt-4">
-							Return to Pokémon List
-						</Button>
-					</Link>
+			"#" +
+			((1 << 24) | (r << 16) | (g << 8) | b)
+				.toString(16)
+				.slice(1)
+		);
+	};
+
+	// Extraire la palette de couleurs au chargement ou changement d'URL
+	useEffect(() => {
+		if (!imageUrl) return;
+		extractColors(imageUrl);
+	}, [imageUrl]);
+
+	// Copier la couleur au format actuel
+	const copyToClipboard = (color: Color) => {
+		const valueToCopy = color[colorFormat];
+		navigator.clipboard.writeText(valueToCopy);
+		setCopiedColor(valueToCopy);
+
+		// Réinitialiser l'état après 2 secondes
+		setTimeout(() => {
+			setCopiedColor(null);
+		}, 2000);
+	};
+
+	if (palette.length === 0) {
+		return (
+			<div className="py-6">
+				<h2 className="text-xl font-bold mb-4">
+					Color Palette
+				</h2>
+				<div className="h-4 w-32 bg-gray-200 animate-pulse rounded mb-4"></div>
+				<div className="grid grid-cols-3 gap-3">
+					{[...Array(6)].map((_, i) => (
+						<div
+							key={i}
+							className="h-20 bg-gray-200 animate-pulse rounded"
+						></div>
+					))}
 				</div>
 			</div>
 		);
 	}
 
-	if (isLoading) {
+	if (error) {
 		return (
-			<div className="pt-24 lg:pt-32 flex justify-center items-center w-full">
-				<div className="loader border-t-4 border-primary rounded-full w-10 h-10 animate-spin"></div>
+			<div className="py-6">
+				<h2 className="text-xl font-bold mb-4">
+					Color Palette
+				</h2>
+				<p className="text-red-500">
+					Failed to extract colors from image
+				</p>
 			</div>
 		);
 	}
 
 	return (
-		<section
-			className="pt-24 lg:pt-32 flex justify-center items-center w-full min-h-screen"
-			style={{ backgroundColor: `${backgroundColor}15` }} // Très légère teinte de la couleur du Pokémon
-		>
-			<div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-6xl">
-				<Link
-					href="/pokemon"
-					className="inline-block mb-6"
-				>
-					<Button
-						variant="outline"
-						className="gap-2"
-					>
-						<ArrowLeft size={16} />
-						Back to Pokémon List
-					</Button>
-				</Link>
+		<div className="py-6">
+			<h2 className="text-xl font-bold mb-4">
+				Color Palette
+			</h2>
 
-				<div className="bg-white rounded-xl shadow-xl overflow-hidden">
-					{/* Header with background color */}
-					<div
-						className="w-full py-8 px-6 flex flex-col md:flex-row items-center justify-between relative"
-						style={{ backgroundColor }}
-					>
-						{/* Pokemon number */}
-						<div className="absolute top-4 right-6 bg-white/20 rounded-full px-3 py-1 backdrop-blur-sm">
-							<span className="font-bold">
-								#
-								{pokemonData?.id
-									?.toString()
-									.padStart(
-										3,
-										"0"
-									)}
-							</span>
-						</div>
+			{/* Palette de couleurs */}
+			<div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-6">
+				{palette.map((swatch, index) => (
+					<button
+						key={index}
+						className={`h-16 rounded-md shadow-md transition-all hover:scale-105 ${
+							selectedColor?.hex ===
+							swatch.color
+								? "ring-2 ring-primary"
+								: ""
+						}`}
+						style={{
+							backgroundColor:
+								swatch.color,
+						}}
+						onClick={() =>
+							setSelectedColor(
+								convertToAllFormats(
+									swatch.color
+								)
+							)
+						}
+						aria-label={`Select ${swatch.name} color`}
+					/>
+				))}
+			</div>
 
-						{/* Pokemon image */}
-						<div className="relative mb-6 md:mb-0">
-							<div className="absolute inset-0 flex justify-center items-center opacity-20 scale-150">
-								<Image
-									src="/assets/pokeball_big.png"
-									alt="Pokeball background"
-									width={
-										200
-									}
-									height={
-										200
-									}
-									className="object-contain"
-								/>
-							</div>
-							<img
-								src={
-									pokemonData!
-										.sprites
-										.other[
-										"official-artwork"
-									]
-										.front_default ||
-									pokemonData!
-										.sprites
-										.front_default
-								}
-								alt={
-									pokemonData?.name
-								}
-								className="h-64 w-64 object-contain z-10 relative"
+			{/* Détails de la couleur sélectionnée */}
+			{selectedColor && (
+				<div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
+					<div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+						<div className="flex items-center gap-3">
+							<div
+								className="w-12 h-12 rounded-full shadow-md"
+								style={{
+									backgroundColor:
+										selectedColor.hex,
+								}}
 							/>
+							<div>
+								<h3 className="font-medium">
+									Selected
+									Color
+								</h3>
+								<p className="text-sm text-gray-500 dark:text-gray-400">
+									{palette.find(
+										(
+											p
+										) =>
+											p.color ===
+											selectedColor.hex
+									)
+										?.name ||
+										"Custom"}
+								</p>
+							</div>
 						</div>
 
-						{/* Pokemon name and types */}
-						<div className="text-center md:text-left md:pl-6 z-10">
-							<h1 className="text-4xl font-bold text-white mb-2 capitalize">
-								{
-									pokemonData?.name
+						<div className="flex gap-2">
+							<Button
+								variant={
+									colorFormat ===
+									"hex"
+										? "default"
+										: "outline"
 								}
-							</h1>
-							<div className="flex flex-wrap gap-2 justify-center md:justify-start">
-								{pokemonData?.types.map(
-									(type: {
-										type: {
-											name: string;
-										};
-									}) => (
-										<span
-											key={
-												type
-													.type
-													.name
-											}
-											className="px-3 py-1 rounded-full text-xs font-semibold bg-white/30 backdrop-blur-sm"
-										>
-											{type.type.name.toUpperCase()}
-										</span>
+								onClick={() =>
+									setColorFormat(
+										"hex"
 									)
-								)}
-							</div>
+								}
+								className="text-xs"
+							>
+								HEX
+							</Button>
+							<Button
+								variant={
+									colorFormat ===
+									"rgb"
+										? "default"
+										: "outline"
+								}
+								onClick={() =>
+									setColorFormat(
+										"rgb"
+									)
+								}
+								className="text-xs"
+							>
+								RGB
+							</Button>
+							<Button
+								variant={
+									colorFormat ===
+									"hsl"
+										? "default"
+										: "outline"
+								}
+								onClick={() =>
+									setColorFormat(
+										"hsl"
+									)
+								}
+								className="text-xs"
+							>
+								HSL
+							</Button>
 						</div>
 					</div>
 
-					{/* Pokemon details */}
-					<div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-						{/* Left column: About */}
-						<div>
-							<h2
-								className="text-xl font-bold mb-4"
-								style={{
-									color: textColor,
-								}}
-							>
-								About
-							</h2>
-							<div className="space-y-4">
-								<div className="grid grid-cols-2 gap-2">
-									<span className="text-gray-600">
-										Height
-									</span>
-									<span>
-										{(
-											pokemonData!
-												.height /
-											10
-										).toFixed(
-											1
-										)}{" "}
-										m
-									</span>
-								</div>
-								<div className="grid grid-cols-2 gap-2">
-									<span className="text-gray-600">
-										Weight
-									</span>
-									<span>
-										{(
-											pokemonData!
-												.weight /
-											10
-										).toFixed(
-											1
-										)}{" "}
-										kg
-									</span>
-								</div>
-								<div className="grid grid-cols-2 gap-2">
-									<span className="text-gray-600">
-										Abilities
-									</span>
-									<span className="capitalize">
-										{pokemonData?.abilities
-											.map(
-												(ability: {
-													ability: {
-														name: string;
-													};
-												}) =>
-													ability.ability.name.replace(
-														"-",
-														" "
-													)
-											)
-											.join(
-												", "
-											)}
-									</span>
-								</div>
-							</div>
+					{/* Affichage et copie de la couleur */}
+					<div className="mt-4 bg-white dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700 flex items-center">
+						<div className="flex-grow px-3 py-2 text-sm font-mono overflow-auto">
+							{
+								selectedColor[
+									colorFormat
+								]
+							}
 						</div>
-
-						{/* Right column: Stats */}
-						<div>
-							<h2
-								className="text-xl font-bold mb-4"
-								style={{
-									color: textColor,
-								}}
-							>
-								Base Stats
-							</h2>
-							<div className="space-y-3">
-								{pokemonData?.stats.map(
-									(stat: {
-										base_stat: number;
-										stat: {
-											name: string;
-										};
-									}) => (
-										<div
-											key={
-												stat
-													.stat
-													.name
-											}
-											className="space-y-1"
-										>
-											<div className="flex justify-between">
-												<span className="text-sm capitalize">
-													{stat.stat.name.replace(
-														"-",
-														" "
-													)}
-												</span>
-												<span className="text-sm font-semibold">
-													{
-														stat.base_stat
-													}
-												</span>
-											</div>
-											<div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-												<div
-													className="h-full rounded-full"
-													style={{
-														width: `${Math.min(
-															100,
-															(stat.base_stat /
-																255) *
-																100
-														)}%`,
-														backgroundColor:
-															textColor,
-													}}
-												></div>
-											</div>
-										</div>
-									)
-								)}
-							</div>
-						</div>
-
-						{/* Sprites gallery */}
-						<div className="md:col-span-2 mt-4">
-							<h2
-								className="text-xl font-bold mb-4"
-								style={{
-									color: textColor,
-								}}
-							>
-								Sprites
-							</h2>
-							<div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-								{pokemonData!
-									.sprites
-									.front_default && (
-									<div className="bg-gray-100 rounded-lg p-2 flex justify-center">
-										<img
-											src={
-												pokemonData!
-													.sprites
-													.front_default
-											}
-											alt="Front Default"
-											className="h-24"
-										/>
-									</div>
-								)}
-								{pokemonData!
-									.sprites
-									.back_default && (
-									<div className="bg-gray-100 rounded-lg p-2 flex justify-center">
-										<img
-											src={
-												pokemonData!
-													.sprites
-													.back_default
-											}
-											alt="Back Default"
-											className="h-24"
-										/>
-									</div>
-								)}
-								{pokemonData!
-									.sprites
-									.front_shiny && (
-									<div className="bg-gray-100 rounded-lg p-2 flex justify-center">
-										<img
-											src={
-												pokemonData!
-													.sprites
-													.front_shiny
-											}
-											alt="Front Shiny"
-											className="h-24"
-										/>
-									</div>
-								)}
-								{pokemonData!
-									.sprites
-									.back_shiny && (
-									<div className="bg-gray-100 rounded-lg p-2 flex justify-center">
-										<img
-											src={
-												pokemonData!
-													.sprites
-													.back_shiny
-											}
-											alt="Back Shiny"
-											className="h-24"
-										/>
-									</div>
-								)}
-							</div>
-						</div>
+						<Button
+							variant="ghost"
+							className="h-full px-3 rounded-l-none"
+							onClick={() =>
+								copyToClipboard(
+									selectedColor
+								)
+							}
+						>
+							{copiedColor ===
+							selectedColor[
+								colorFormat
+							] ? (
+								<CheckIcon className="h-4 w-4 text-green-500" />
+							) : (
+								<CopyIcon className="h-4 w-4" />
+							)}
+						</Button>
 					</div>
 				</div>
-			</div>
-		</section>
+			)}
+		</div>
 	);
 }

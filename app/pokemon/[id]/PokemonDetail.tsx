@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import ColorPalette from "../../components/pokemon/ColorPalette";
 
 export default function PokemonDetailClient({ id }: { id: string }) {
 	interface PokemonData {
@@ -390,6 +391,51 @@ export default function PokemonDetailClient({ id }: { id: string }) {
 								)}
 							</div>
 						</div>
+					</div>
+				</div>
+				<div className="md:col-span-2 mt-8">
+					<div className="p-4 bg-white rounded-xl shadow-sm">
+						<h2
+							className="text-xl font-bold mb-4"
+							style={{
+								color: textColor,
+							}}
+						>
+							Artwork Palette
+						</h2>
+						<ColorPalette
+							imageUrl={
+								pokemonData!
+									.sprites
+									.other[
+									"official-artwork"
+								]
+									?.front_default ||
+								pokemonData!
+									.sprites
+									.front_default ||
+								"/assets/default-image.png"
+							}
+						/>
+					</div>
+
+					<div className="p-4 bg-white rounded-xl shadow-sm mt-6">
+						<h2
+							className="text-xl font-bold mb-4"
+							style={{
+								color: textColor,
+							}}
+						>
+							Sprite Palette
+						</h2>
+						<ColorPalette
+							imageUrl={
+								pokemonData!
+									.sprites
+									.front_default ||
+								"/assets/default-image.png"
+							}
+						/>
 					</div>
 				</div>
 			</div>
