@@ -1,90 +1,166 @@
 import { Colors } from "@/app/helpers/Colors";
+import { fetchPokemon } from "@/app/helpers/FetchPokemon";
 import { NextResponse } from "next/server";
 
 // Cache simple en mémoire
-let cachedTypes: {
-	types: {
-		type: string;
-		color: {
-			hex: string;
-			rgb: string;
-			r: number;
-			g: number;
-			b: number;
+const CACHE = new Map<
+	string,
+	{
+		data: {
+			name: string;
+			primary: {
+				hex: string;
+				rgb: string;
+				rgba: string;
+				r: number;
+				g: number;
+				b: number;
+			};
+			secondary: {
+				hex: string;
+				rgb: string;
+				rgba: string;
+				r: number;
+				g: number;
+				b: number;
+			};
+			text: {
+				hex: string;
+				rgb: string;
+				rgba: string;
+				r: number;
+				g: number;
+				b: number;
+			};
 		};
-		textColor: string;
-	}[];
-	count: number;
-} | null = null;
-let cacheTimestamp: number = 0;
-const CACHE_TTL = 86400000; // 24 heures en millisecondes (ce sont des données statiques)
+		timestamp: number;
+	}
+>();
+const CACHE_TTL = 3600000; // 1 heure en millisecondes
 
-// Cette route retourne toutes les couleurs de type disponibles
-export async function GET() {
+export async function GET(
+	request: Request,
+	{ params }: { params: { id: string } }
+) {
 	try {
+		const id = params.id;
+		const cacheKey = `colors-${id}`;
+
 		// Vérifier le cache
-		if (cachedTypes && Date.now() - cacheTimestamp < CACHE_TTL) {
-			return NextResponse.json(cachedTypes, {
+		const cachedItem = CACHE.get(cacheKey);
+		if (
+			cachedItem &&
+			Date.now() - cachedItem.timestamp < CACHE_TTL
+		) {
+			return NextResponse.json(cachedItem.data, {
 				headers: {
-					"Cache-Control":
-						"public, max-age=86400",
+					"Cache-Control": "public, max-age=3600",
 					"X-Cache": "HIT",
 				},
 			});
 		}
 
-		const typeColors = { ...Colors.type };
-		const textColors = { ...Colors.textColor };
+		// Récupérer les données du Pokémon
+		const data = await fetchPokemon(id);
 
-		const colorEntries = Object.entries(typeColors).map(
-			([type, color]) => {
-				// Convertir de HEX à RGB
-				const hexToRgb = (hex: string) => {
-					const r = parseInt(hex.slice(1, 3), 16);
-					const g = parseInt(hex.slice(3, 5), 16);
-					const b = parseInt(hex.slice(5, 7), 16);
-					return { r, g, b };
-				};
+		// Déterminer les couleurs en fonction du type principal et secondaire
+		const primaryType = data.types[0]?.type
+			?.name as keyof typeof Colors.type;
+		const secondaryType = data.types[1]?.type
+			?.name as keyof typeof Colors.type;
 
-				const rgb = hexToRgb(color);
-				const textColor =
-					textColors[
-						type as keyof typeof textColors
-					] || "#FFFFFF";
+		const backgroundColor = Colors.type[primaryType] ?? "#FFFFFF";
+		const textColor = Colors.textColor[primaryType] || "#000000";
 
-				return {
-					type,
-					color: {
-						hex: color,
-						rgb: `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`,
-						r: rgb.r,
-						g: rgb.g,
-						b: rgb.b,
-					},
-					textColor,
-				};
-			}
-		);
+		// Calculer la couleur secondaire
+		let secondaryColor;
+		if (secondaryType && Colors.type[secondaryType]) {
+			secondaryColor = Colors.type[secondaryType];
+		} else {
+			// Sinon, couleur complémentaire
+			const primaryHex =
+				Colors.type[primaryType] || "#5A92A4";
+			const r = parseInt(primaryHex.slice(1, 3), 16);
+			const g = parseInt(primaryHex.slice(3, 5), 16);
+			const b = parseInt(primaryHex.slice(5, 7), 16);
 
+			// Créer une couleur complémentaire plus douce
+			const secondaryR = Math.min(
+				255,
+				Math.max(0, 255 - r + 40)
+			);
+			const secondaryG = Math.min(
+				255,
+				Math.max(0, 255 - g + 40)
+			);
+			const secondaryB = Math.min(
+				255,
+				Math.max(0, 255 - b + 40)
+			);
+
+			secondaryColor = `#${secondaryR
+				.toString(16)
+				.padStart(2, "0")}${secondaryG
+				.toString(16)
+				.padStart(2, "0")}${secondaryB
+				.toString(16)
+				.padStart(2, "0")}`;
+		}
+
+		// Extraire les formats de couleur différents
+		const hexToRgb = (hex: string) => {
+			const r = parseInt(hex.slice(1, 3), 16);
+			const g = parseInt(hex.slice(3, 5), 16);
+			const b = parseInt(hex.slice(5, 7), 16);
+			return { r, g, b };
+		};
+
+		const primaryRgb = hexToRgb(backgroundColor);
+		const secondaryRgb = hexToRgb(secondaryColor);
+		const textRgb = hexToRgb(textColor);
+
+		// Préparer la réponse
 		const response = {
-			types: colorEntries,
-			count: colorEntries.length,
+			name: data.name,
+			primary: {
+				hex: backgroundColor,
+				rgb: `rgb(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b})`,
+				rgba: `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 1)`,
+				r: primaryRgb.r,
+				g: primaryRgb.g,
+				b: primaryRgb.b,
+			},
+			secondary: {
+				hex: secondaryColor,
+				rgb: `rgb(${secondaryRgb.r}, ${secondaryRgb.g}, ${secondaryRgb.b})`,
+				rgba: `rgba(${secondaryRgb.r}, ${secondaryRgb.g}, ${secondaryRgb.b}, 1)`,
+				r: secondaryRgb.r,
+				g: secondaryRgb.g,
+				b: secondaryRgb.b,
+			},
+			text: {
+				hex: textColor,
+				rgb: `rgb(${textRgb.r}, ${textRgb.g}, ${textRgb.b})`,
+				rgba: `rgba(${textRgb.r}, ${textRgb.g}, ${textRgb.b}, 1)`,
+				r: textRgb.r,
+				g: textRgb.g,
+				b: textRgb.b,
+			},
 		};
 
 		// Mettre en cache
-		cachedTypes = response;
-		cacheTimestamp = Date.now();
+		CACHE.set(cacheKey, { data: response, timestamp: Date.now() });
 
 		return NextResponse.json(response, {
 			headers: {
-				"Cache-Control": "public, max-age=86400",
+				"Cache-Control": "public, max-age=3600",
 				"X-Cache": "MISS",
 			},
 		});
 	} catch (error) {
 		console.error("API Error:", error);
 		return NextResponse.json(
-			{ error: "Failed to retrieve type colors" },
+			{ error: "Failed to fetch color data" },
 			{ status: 500 }
 		);
 	}
