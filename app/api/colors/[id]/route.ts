@@ -1,89 +1,56 @@
 import { Colors } from "@/app/helpers/Colors";
 import { NextResponse } from "next/server";
 
-// Cache pour les types de Pokémon (données statiques)
-let cachedTypes: {
-	types: {
-		type: string;
-		color: {
-			hex: string;
-			rgb: string;
-			r: number;
-			g: number;
-			b: number;
-		};
-		textColor: string;
-	}[];
-	count: number;
-} | null = null;
-let cacheTimestamp = 0;
-const CACHE_TTL = 86400000; // 24 heures (ces données sont statiques)
-
-export async function GET() {
+export async function GET(
+	request: Request,
+	context: { params: { id: string } }
+) {
 	try {
-		// Vérifier le cache
-		if (cachedTypes && Date.now() - cacheTimestamp < CACHE_TTL) {
-			return NextResponse.json(cachedTypes, {
-				headers: {
-					"Cache-Control":
-						"public, max-age=86400",
-					"X-Cache": "HIT",
-				},
-			});
+		const { id } = context.params;
+
+		// Récupérer les données pour le type de Pokémon
+		const typeColors = Colors.type[id as keyof typeof Colors.type];
+		const textColor =
+			Colors.textColor[id as keyof typeof Colors.textColor];
+
+		if (!typeColors) {
+			return NextResponse.json(
+				{ error: "Type not found" },
+				{ status: 404 }
+			);
 		}
 
-		const typeColors = { ...Colors.type };
-		const textColors = { ...Colors.textColor };
-
-		const colorEntries = Object.entries(typeColors).map(
-			([type, color]) => {
-				// Convertir de HEX à RGB
-				const hexToRgb = (hex: string) => {
-					const r = parseInt(hex.slice(1, 3), 16);
-					const g = parseInt(hex.slice(3, 5), 16);
-					const b = parseInt(hex.slice(5, 7), 16);
-					return { r, g, b };
-				};
-
-				const rgb = hexToRgb(color);
-				const textColor =
-					textColors[
-						type as keyof typeof textColors
-					] || "#FFFFFF";
-
-				return {
-					type,
-					color: {
-						hex: color,
-						rgb: `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`,
-						r: rgb.r,
-						g: rgb.g,
-						b: rgb.b,
-					},
-					textColor,
-				};
-			}
-		);
-
-		const response = {
-			types: colorEntries,
-			count: colorEntries.length,
+		// Convertir HEX en RGB
+		const hexToRgb = (hex: string) => {
+			const r = parseInt(hex.slice(1, 3), 16);
+			const g = parseInt(hex.slice(3, 5), 16);
+			const b = parseInt(hex.slice(5, 7), 16);
+			return { r, g, b };
 		};
 
-		// Mettre en cache
-		cachedTypes = response;
-		cacheTimestamp = Date.now();
+		const rgb = hexToRgb(typeColors);
+
+		const response = {
+			type: id,
+			color: {
+				hex: typeColors,
+				rgb: `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`,
+				r: rgb.r,
+				g: rgb.g,
+				b: rgb.b,
+			},
+			textColor: textColor || "#FFFFFF",
+		};
 
 		return NextResponse.json(response, {
 			headers: {
 				"Cache-Control": "public, max-age=86400",
-				"X-Cache": "MISS",
 			},
 		});
 	} catch (error) {
 		console.error("API Error:", error);
 		return NextResponse.json(
-			{ error: "Failed to retrieve type colors" },
+			{ error: "Failed to retrieve type color" },
 			{ status: 500 }
 		);
 	}

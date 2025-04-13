@@ -31,9 +31,10 @@ const CACHE_TTL = 3600000; // 1 heure en millisecondes
 
 export async function GET(
 	request: Request,
-	{ params }: { params: { id: string } }
+	context: Promise<{ params: { id: string } }>
 ) {
 	try {
+		const { params } = await context;
 		const id = params.id;
 		const cacheKey = `pokemon-${id}`;
 
