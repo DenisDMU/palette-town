@@ -7,33 +7,19 @@ import { AnimatePresence, motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 
 export default function Navbar() {
-	// State for mobile menu
 	const [isOpen, setIsOpen] = useState(false);
-	// State for Pikachu sprite
 	const [pikachuSprite, setPikachuSprite] = useState<string | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
-	// Current path for route change detection
 	const pathname = usePathname();
 
-	// Close menu when route changes
-	useEffect(() => {
-		if (isOpen) {
-			setIsOpen(false);
-		}
-	}, [pathname, isOpen]);
-
-	// Fetch Pikachu sprite on component mount
 	useEffect(() => {
 		const fetchPikachuSprite = async () => {
 			setIsLoading(true);
 			try {
-				// Fetch Pikachu data (Pikachu's ID is 25)
 				const response = await fetch(
 					"https://pokeapi.co/api/v2/pokemon/25"
 				);
 				const data = await response.json();
-
-				// Get the front_default sprite URL
 				setPikachuSprite(data.sprites.front_default);
 			} catch (error) {
 				console.error(
@@ -48,6 +34,10 @@ export default function Navbar() {
 		fetchPikachuSprite();
 	}, []);
 
+	useEffect(() => {
+		setIsOpen(false);
+	}, [pathname]);
+
 	return (
 		<>
 			<section className="py-4 lg:py-8 flex justify-center fixed w-full top-0 z-50">
@@ -56,10 +46,8 @@ export default function Navbar() {
 						<div className="grid grid-cols-2 lg:grid-cols-3 p-2 px-4 md:pr-2 items-center">
 							<div>
 								{isLoading ? (
-									// Show a placeholder while loading
 									<div className="h-9 w-9 rounded-full bg-primary/20 animate-pulse"></div>
 								) : (
-									// Show Pikachu sprite when loaded
 									<Image
 										src={
 											pikachuSprite ||
@@ -73,7 +61,6 @@ export default function Navbar() {
 											40
 										}
 										className="h-9 md:h-auto w-auto"
-										unoptimized
 									/>
 								)}
 							</div>
@@ -81,45 +68,25 @@ export default function Navbar() {
 								<nav className="flex gap-6 font-medium text-foreground">
 									<Link
 										href="/"
-										className={`transition-colors ${
-											pathname ===
-											"/"
-												? "text-primary"
-												: "hover:text-primary"
-										}`}
+										className="hover:text-primary transition-colors"
 									>
 										Home
 									</Link>
 									<Link
 										href="/pokemon"
-										className={`transition-colors ${
-											pathname ===
-											"/pokemon"
-												? "text-primary"
-												: "hover:text-primary"
-										}`}
+										className="hover:text-primary transition-colors"
 									>
 										Pokemon
 									</Link>
 									<Link
 										href="/api"
-										className={`transition-colors ${
-											pathname ===
-											"/api"
-												? "text-primary"
-												: "hover:text-primary"
-										}`}
+										className="hover:text-primary transition-colors"
 									>
 										API
 									</Link>
 									<Link
 										href="/docs"
-										className={`transition-colors ${
-											pathname ===
-											"/docs"
-												? "text-primary"
-												: "hover:text-primary"
-										}`}
+										className="hover:text-primary transition-colors"
 									>
 										Docs
 									</Link>
@@ -136,7 +103,7 @@ export default function Navbar() {
 									strokeWidth="2"
 									strokeLinecap="round"
 									strokeLinejoin="round"
-									className="feather feather-menu text-primary md:hidden"
+									className="feather feather-menu text-primary lg:hidden"
 									onClick={() =>
 										setIsOpen(
 											!isOpen
@@ -179,89 +146,42 @@ export default function Navbar() {
 								</svg>
 							</div>
 						</div>
-						{/* Mobile Menu */}
 						<AnimatePresence>
 							{isOpen && (
 								<motion.nav
 									initial={{
 										height: 0,
-										opacity: 0,
 									}}
 									animate={{
 										height: "auto",
-										opacity: 1,
 									}}
 									exit={{
 										height: 0,
-										opacity: 0,
-									}}
-									transition={{
-										duration: 0.3,
 									}}
 									className="text-foreground overflow-hidden"
 								>
 									<div className="flex flex-col items-center gap-4 py-4">
 										<Link
 											href="/"
-											className={`transition-colors ${
-												pathname ===
-												"/"
-													? "text-primary"
-													: "hover:text-primary"
-											}`}
-											onClick={() =>
-												setIsOpen(
-													false
-												)
-											}
+											className="hover:text-primary transition-colors"
 										>
 											Home
 										</Link>
 										<Link
 											href="/pokemon"
-											className={`transition-colors ${
-												pathname ===
-												"/pokemon"
-													? "text-primary"
-													: "hover:text-primary"
-											}`}
-											onClick={() =>
-												setIsOpen(
-													false
-												)
-											}
+											className="hover:text-primary transition-colors"
 										>
 											Pokemons
 										</Link>
 										<Link
 											href="/api"
-											className={`transition-colors ${
-												pathname ===
-												"/api"
-													? "text-primary"
-													: "hover:text-primary"
-											}`}
-											onClick={() =>
-												setIsOpen(
-													false
-												)
-											}
+											className="hover:text-primary transition-colors"
 										>
 											API
 										</Link>
 										<Link
 											href="/docs"
-											className={`transition-colors ${
-												pathname ===
-												"/docs"
-													? "text-primary"
-													: "hover:text-primary"
-											}`}
-											onClick={() =>
-												setIsOpen(
-													false
-												)
-											}
+											className="hover:text-primary transition-colors"
 										>
 											Docs
 										</Link>
