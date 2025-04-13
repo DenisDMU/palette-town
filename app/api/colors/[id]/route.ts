@@ -3,10 +3,11 @@ import { NextResponse } from "next/server";
 
 export async function GET(
 	request: Request,
-	context: { params: { id: string } }
+	context: Promise<{ params: { id: string } }>
 ) {
 	try {
-		const { id } = context.params;
+		const { params } = await context;
+		const id = params.id;
 
 		// Récupérer les données pour le type de Pokémon
 		const typeColors = Colors.type[id as keyof typeof Colors.type];
