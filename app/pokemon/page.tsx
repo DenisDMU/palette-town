@@ -1,10 +1,19 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import CardPokemon from "../components/pokemon/CardPokemon";
 import SearchPokemon from "../components/pokemon/SearchPokemon";
+import Image from "next/image";
 
 export default function Pokemon() {
-	type Pokemon = { name: string; number: number };
+	type Pokemon = {
+		name: string;
+		number: number;
+	};
+
+	const searchParams = useSearchParams();
+	const initialSearch = searchParams?.get("search") || "";
+
 	const [pokemonList, setPokemonList] = useState<Pokemon[]>([]); // Liste complète des Pokémon
 	const [filteredPokemonList, setFilteredPokemonList] = useState<
 		Pokemon[]
@@ -12,7 +21,9 @@ export default function Pokemon() {
 	const [error, setError] = useState<string | null>(null);
 	const [offset, setOffset] = useState(0); // Offset pour la pagination
 	const [isLoading, setIsLoading] = useState(false);
-	const [isSearchMode, setIsSearchMode] = useState(false); // Mode recherche
+	const [isInitialLoading, setIsInitialLoading] = useState(true); // État pour le chargement initial
+	const [isSearchMode, setIsSearchMode] = useState(!!initialSearch); // Mode recherche actif si paramètre de recherche
+	const [searchQuery, setSearchQuery] = useState(initialSearch); // État pour suivre la requête de recherche
 	const observerRef = useRef<HTMLDivElement | null>(null);
 
 	const fetchPokemonList = async (offset: number) => {
@@ -70,6 +81,7 @@ export default function Pokemon() {
 			}
 		} finally {
 			setIsLoading(false);
+			setIsInitialLoading(false);
 		}
 	};
 
@@ -79,6 +91,13 @@ export default function Pokemon() {
 			fetchPokemonList(offset);
 		}
 	}, [offset, isSearchMode]);
+
+	// Exécuter la recherche initiale si on a un paramètre dans l'URL
+	useEffect(() => {
+		if (initialSearch) {
+			handleSearch(initialSearch);
+		}
+	}, [initialSearch]);
 
 	// Intersection Observer pour le chargement infini
 	useEffect(() => {
@@ -113,6 +132,8 @@ export default function Pokemon() {
 
 	// Fonction pour rechercher un Pokémon par nom ou numéro
 	const handleSearch = async (query: string) => {
+		setSearchQuery(query); // Mettre à jour l'état de la requête de recherche
+
 		if (!query) {
 			// Si la recherche est vide, réinitialiser la liste filtrée et désactiver le mode recherche
 			setFilteredPokemonList(pokemonList);
@@ -122,11 +143,11 @@ export default function Pokemon() {
 
 		// Activer le mode recherche pour suspendre le chargement infini
 		setIsSearchMode(true);
+		setIsLoading(true);
 
 		// Si nous n'avons pas encore chargé tous les Pokémon (151), les charger maintenant
 		if (pokemonList.length < 151) {
 			try {
-				setIsLoading(true);
 				// Charger tous les 151 premiers Pokémon d'un coup
 				const response = await fetch(
 					`https://pokeapi.co/api/v2/pokemon?limit=151`
@@ -149,6 +170,35 @@ export default function Pokemon() {
 
 				// Mettre à jour la liste complète
 				setPokemonList(results);
+
+				// Convertir la requête en minuscules pour une recherche insensible à la casse
+				const lowerCaseQuery = query.toLowerCase();
+
+				// Vérifier si la requête est un nombre
+				const isNumber = !isNaN(Number(query));
+
+				if (isNumber) {
+					// Si c'est un nombre, filtrer uniquement par numéro exact
+					const filtered = results.filter(
+						(pokemon: Pokemon) =>
+							pokemon.number ===
+							Number(query)
+					);
+					// Remplacer la liste filtrée au lieu de l'ajouter
+					setFilteredPokemonList(filtered);
+				} else {
+					// Si c'est du texte, filtrer par nom (recherche partielle)
+					const filtered = results.filter(
+						(pokemon: { name: string }) =>
+							pokemon.name
+								.toLowerCase()
+								.includes(
+									lowerCaseQuery
+								)
+					);
+					// Remplacer la liste filtrée au lieu de l'ajouter
+					setFilteredPokemonList(filtered);
+				}
 			} catch (error) {
 				if (error instanceof Error) {
 					setError(error.message);
@@ -160,32 +210,29 @@ export default function Pokemon() {
 			} finally {
 				setIsLoading(false);
 			}
-		}
-
-		// Convertir la requête en minuscules pour une recherche insensible à la casse
-		const lowerCaseQuery = query.toLowerCase();
-
-		// Vérifier si la requête est un nombre
-		const isNumber = !isNaN(Number(query));
-
-		if (isNumber) {
-			// Si c'est un nombre, filtrer uniquement par numéro exact
-			const filtered = pokemonList.filter(
-				(pokemon) => pokemon.number === Number(query)
-			);
-			// Remplacer la liste filtrée au lieu de l'ajouter
-			setFilteredPokemonList(filtered);
 		} else {
-			// Si c'est du texte, filtrer par nom (recherche partielle)
-			const filtered = pokemonList.filter((pokemon) =>
-				pokemon.name
-					.toLowerCase()
-					.includes(lowerCaseQuery)
-			);
-			// Remplacer la liste filtrée au lieu de l'ajouter
-			setFilteredPokemonList(filtered);
+			// Si nous avons déjà chargé tous les Pokémon, filtrer simplement
+			const lowerCaseQuery = query.toLowerCase();
+			const isNumber = !isNaN(Number(query));
+
+			if (isNumber) {
+				const filtered = pokemonList.filter(
+					(pokemon) =>
+						pokemon.number === Number(query)
+				);
+				setFilteredPokemonList(filtered);
+			} else {
+				const filtered = pokemonList.filter((pokemon) =>
+					pokemon.name
+						.toLowerCase()
+						.includes(lowerCaseQuery)
+				);
+				setFilteredPokemonList(filtered);
+			}
+			setIsLoading(false);
 		}
 	};
+
 	if (error) {
 		return <div className="text-red-500 text-center">{error}</div>;
 	}
@@ -196,34 +243,82 @@ export default function Pokemon() {
 				<div className="flex justify-center mt-0 w-full">
 					<SearchPokemon
 						onSearch={handleSearch}
+						initialValue={searchQuery}
 					/>
 				</div>
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
-					{filteredPokemonList.map(
-						(pokemon, index) => (
-							<CardPokemon
-								key={`${pokemon.name}-${index}`}
-								pokemonName={
-									pokemon.name
-								}
+
+				{/* État de chargement initial ou recherche en cours */}
+				{(isInitialLoading ||
+					(isLoading &&
+						filteredPokemonList.length ===
+							0)) && (
+					<div className="text-center py-16 flex flex-col items-center justify-center">
+						<div className="relative w-16 h-16 mb-4 animate-spin">
+							<Image
+								src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/master-ball.png"
+								alt="Loading..."
+								width={64}
+								height={64}
+								className="object-contain"
 							/>
-						)
+						</div>
+						<p className="text-gray-500 text-lg">
+							Still loading...
+						</p>
+					</div>
+				)}
+
+				{/* Grille de cartes Pokémon */}
+				{!isInitialLoading &&
+					filteredPokemonList.length > 0 && (
+						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
+							{filteredPokemonList.map(
+								(
+									pokemon,
+									index
+								) => (
+									<CardPokemon
+										key={`${pokemon.name}-${index}`}
+										pokemonName={
+											pokemon.name
+										}
+									/>
+								)
+							)}
+						</div>
 					)}
-				</div>
-				{/* Message quand aucun résultat n'est trouvé */}
+
+				{/* Message quand aucun résultat n'est trouvé (mais que le chargement est terminé) */}
 				{filteredPokemonList.length === 0 &&
-					!isLoading && (
+					!isLoading &&
+					!isInitialLoading && (
 						<div className="text-center py-10 text-gray-500">
 							No Pokémon found
 							matching your search.
 						</div>
 					)}
-				{/* Loader pour le chargement infini */}
-				{isLoading && (
-					<div className="flex justify-center items-center mt-8">
-						<div className="loader border-t-4 border-primary rounded-full w-8 h-8 animate-spin"></div>
-					</div>
-				)}
+
+				{/* Loader pour le chargement infini (uniquement affiché pendant le défilement) */}
+				{isLoading &&
+					!isInitialLoading &&
+					filteredPokemonList.length > 0 && (
+						<div className="flex justify-center items-center mt-8">
+							<div className="relative w-12 h-12 animate-spin">
+								<Image
+									src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/master-ball.png"
+									alt="Loading more..."
+									width={
+										48
+									}
+									height={
+										48
+									}
+									className="object-contain"
+								/>
+							</div>
+						</div>
+					)}
+
 				{/* Référence pour l'IntersectionObserver, masqué en mode recherche */}
 				{!isSearchMode && (
 					<div

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 
 interface SearchPokemonProps {
 	onSearch: (query: string) => void; // Fonction pour transmettre la recherche au parent
+	initialValue: string;
 }
 
 export default function SearchPokemon({ onSearch }: SearchPokemonProps) {

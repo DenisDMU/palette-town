@@ -1,4 +1,3 @@
-import Footer from "./components/Footer";
 import Adventures from "./components/home/Pokemon";
 import Banner from "./components/home/Banner";
 import Faq from "./components/home/Faq";
@@ -17,7 +16,6 @@ export default function Home() {
 			<Adventures />
 			<Faq />
 			<Banner />
-			<Footer />
 		</>
 	);
 }
