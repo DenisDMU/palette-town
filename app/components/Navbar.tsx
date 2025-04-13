@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { twMerge } from "tailwind-merge";
 import { AnimatePresence, motion } from "framer-motion";
+import { usePathname } from "next/navigation";
 
 export default function Navbar() {
 	// State for mobile menu
@@ -11,6 +12,15 @@ export default function Navbar() {
 	// State for Pikachu sprite
 	const [pikachuSprite, setPikachuSprite] = useState<string | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
+	// Current path for route change detection
+	const pathname = usePathname();
+
+	// Close menu when route changes
+	useEffect(() => {
+		if (isOpen) {
+			setIsOpen(false);
+		}
+	}, [pathname, isOpen]);
 
 	// Fetch Pikachu sprite on component mount
 	useEffect(() => {
@@ -63,6 +73,7 @@ export default function Navbar() {
 											40
 										}
 										className="h-9 md:h-auto w-auto"
+										unoptimized
 									/>
 								)}
 							</div>
@@ -70,25 +81,45 @@ export default function Navbar() {
 								<nav className="flex gap-6 font-medium text-foreground">
 									<Link
 										href="/"
-										className="hover:text-primary transition-colors"
+										className={`transition-colors ${
+											pathname ===
+											"/"
+												? "text-primary"
+												: "hover:text-primary"
+										}`}
 									>
 										Home
 									</Link>
 									<Link
 										href="/pokemon"
-										className="hover:text-primary transition-colors"
+										className={`transition-colors ${
+											pathname ===
+											"/pokemon"
+												? "text-primary"
+												: "hover:text-primary"
+										}`}
 									>
 										Pokemon
 									</Link>
 									<Link
 										href="/api"
-										className="hover:text-primary transition-colors"
+										className={`transition-colors ${
+											pathname ===
+											"/api"
+												? "text-primary"
+												: "hover:text-primary"
+										}`}
 									>
 										API
 									</Link>
 									<Link
 										href="/docs"
-										className="hover:text-primary transition-colors"
+										className={`transition-colors ${
+											pathname ===
+											"/docs"
+												? "text-primary"
+												: "hover:text-primary"
+										}`}
 									>
 										Docs
 									</Link>
@@ -154,37 +185,83 @@ export default function Navbar() {
 								<motion.nav
 									initial={{
 										height: 0,
+										opacity: 0,
 									}}
 									animate={{
 										height: "auto",
+										opacity: 1,
 									}}
 									exit={{
 										height: 0,
+										opacity: 0,
+									}}
+									transition={{
+										duration: 0.3,
 									}}
 									className="text-foreground overflow-hidden"
 								>
 									<div className="flex flex-col items-center gap-4 py-4">
 										<Link
 											href="/"
-											className="hover:text-primary transition-colors"
+											className={`transition-colors ${
+												pathname ===
+												"/"
+													? "text-primary"
+													: "hover:text-primary"
+											}`}
+											onClick={() =>
+												setIsOpen(
+													false
+												)
+											}
 										>
 											Home
 										</Link>
 										<Link
 											href="/pokemon"
-											className="hover:text-primary transition-colors"
+											className={`transition-colors ${
+												pathname ===
+												"/pokemon"
+													? "text-primary"
+													: "hover:text-primary"
+											}`}
+											onClick={() =>
+												setIsOpen(
+													false
+												)
+											}
 										>
 											Pokemons
 										</Link>
 										<Link
 											href="/api"
-											className="hover:text-primary transition-colors"
+											className={`transition-colors ${
+												pathname ===
+												"/api"
+													? "text-primary"
+													: "hover:text-primary"
+											}`}
+											onClick={() =>
+												setIsOpen(
+													false
+												)
+											}
 										>
 											API
 										</Link>
 										<Link
 											href="/docs"
-											className="hover:text-primary transition-colors"
+											className={`transition-colors ${
+												pathname ===
+												"/docs"
+													? "text-primary"
+													: "hover:text-primary"
+											}`}
+											onClick={() =>
+												setIsOpen(
+													false
+												)
+											}
 										>
 											Docs
 										</Link>

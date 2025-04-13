@@ -537,7 +537,7 @@ export default function PokemonDetailClient({ id }: { id: string }) {
 	return (
 		<>
 			{/* Navigation controls */}
-			<div className="container mx-auto px-4 mb-6">
+			<div className="container mx-auto px-4 mb-6 mt-10">
 				<div className="flex justify-between">
 					<Button
 						variant="outline"

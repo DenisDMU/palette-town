@@ -1,8 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { CheckIcon, CopyIcon } from "lucide-react";
-// Utilisation de culori (Color.js) pour la manipulation de couleurs
 import convert from "color-convert";
 
 interface ColorPaletteProps {
@@ -30,7 +29,7 @@ export default function ColorPalette({ imageUrl }: ColorPaletteProps) {
 	const [error, setError] = useState<boolean>(false);
 
 	// Convertir une couleur dans les trois formats
-	const convertToAllFormats = (hexColor: string): Color => {
+	const convertToAllFormats = useCallback((hexColor: string): Color => {
 		try {
 			// Enlever le # du début si présent
 			const cleanHex = hexColor.replace("#", "");
@@ -49,208 +48,234 @@ export default function ColorPalette({ imageUrl }: ColorPaletteProps) {
 		} catch {
 			return { hex: hexColor, rgb: "", hsl: "" };
 		}
-	};
+	}, []);
 
-	// Extraction de couleurs à partir de l'image
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	const extractColors = (url: string): void => {
-		const img = new Image();
-		img.crossOrigin = "Anonymous";
+	// Filtrer les couleurs similaires (distance euclidienne)
+	const filterSimilarColors = useCallback(
+		(
+			colors: Array<{ count: number; rgb: number[] }>,
+			threshold: number
+		): Array<{ count: number; rgb: number[] }> => {
+			const result: Array<{ count: number; rgb: number[] }> =
+				[];
 
-		img.onload = () => {
-			const canvas = document.createElement("canvas");
-			const ctx = canvas.getContext("2d", {
-				willReadFrequently: true,
-			});
-			canvas.width = img.width;
-			canvas.height = img.height;
+			for (const color of colors) {
+				let isDuplicate = false;
 
-			if (ctx) {
-				ctx.drawImage(img, 0, 0);
+				for (const uniqueColor of result) {
+					const distance = Math.sqrt(
+						Math.pow(
+							color.rgb[0] -
+								uniqueColor
+									.rgb[0],
+							2
+						) +
+							Math.pow(
+								color.rgb[1] -
+									uniqueColor
+										.rgb[1],
+								2
+							) +
+							Math.pow(
+								color.rgb[2] -
+									uniqueColor
+										.rgb[2],
+								2
+							)
+					);
 
-				// Carte de fréquence des couleurs
-				const colorFrequency: Record<
-					string,
-					{ count: number; rgb: number[] }
-				> = {};
-
-				// Échantillonnage de pixels
-				const pixelData = ctx.getImageData(
-					0,
-					0,
-					canvas.width,
-					canvas.height
-				).data;
-				const step = Math.max(
-					1,
-					Math.floor(
-						(canvas.width * canvas.height) /
-							2000
-					)
-				);
-
-				// Analyser les pixels et compter les fréquences des couleurs
-				for (
-					let i = 0;
-					i < pixelData.length;
-					i += 4 * step
-				) {
-					const r = pixelData[i];
-					const g = pixelData[i + 1];
-					const b = pixelData[i + 2];
-					const a = pixelData[i + 3];
-
-					// Ignorer les pixels transparents ou blancs
-					if (
-						a < 200 ||
-						(r > 240 && g > 240 && b > 240)
-					)
-						continue;
-
-					const key = `${r},${g},${b}`;
-					if (colorFrequency[key]) {
-						colorFrequency[key].count++;
-					} else {
-						colorFrequency[key] = {
-							count: 1,
-							rgb: [r, g, b],
-						};
+					if (distance < threshold) {
+						isDuplicate = true;
+						break;
 					}
 				}
 
-				// Trier les couleurs par fréquence
-				const sortedColors = Object.values(
-					colorFrequency
-				).sort((a, b) => b.count - a.count);
-
-				// Filtrer les couleurs similaires (éviter les doublons visuels)
-				const distinctColors = filterSimilarColors(
-					sortedColors,
-					30
-				);
-
-				// Prendre les 6 premières couleurs distinctes ou compléter avec des couleurs génériques
-				const colorEntries = distinctColors.slice(0, 6);
-
-				// Compléter si nécessaire pour avoir 6 couleurs
-				while (colorEntries.length < 6) {
-					const index = colorEntries.length;
-					const defaultColors = [
-						[255, 100, 100], // Rouge clair
-						[100, 255, 100], // Vert clair
-						[100, 100, 255], // Bleu clair
-						[255, 255, 100], // Jaune
-						[255, 100, 255], // Magenta
-						[100, 255, 255], // Cyan
-					];
-					colorEntries.push({
-						count: 0,
-						rgb: defaultColors[
-							index %
-								defaultColors.length
-						],
-					});
-				}
-
-				// Créer palette à partir des couleurs extraites
-				const colorNames = [
-					"Primary",
-					"Secondary",
-					"Tertiary",
-					"Quaternary",
-					"Quinary",
-					"Senary",
-				];
-				const swatches: SwatchWithName[] =
-					colorEntries.map((entry, index) => {
-						const hexColor = rgbToHex(
-							entry.rgb[0],
-							entry.rgb[1],
-							entry.rgb[2]
-						);
-						return {
-							name: colorNames[index],
-							color: hexColor,
-						};
-					});
-
-				setPalette(swatches);
-
-				if (swatches.length > 0) {
-					setSelectedColor(
-						convertToAllFormats(
-							swatches[0].color
-						)
-					);
-				}
-			}
-		};
-
-		img.onerror = () => {
-			console.error(
-				"Erreur lors du chargement de l'image pour l'extraction des couleurs"
-			);
-			setError(true);
-		};
-
-		img.src = url;
-	};
-
-	// Filtrer les couleurs similaires (distance euclidienne)
-	const filterSimilarColors = (
-		colors: Array<{ count: number; rgb: number[] }>,
-		threshold: number
-	): Array<{ count: number; rgb: number[] }> => {
-		const result: Array<{ count: number; rgb: number[] }> = [];
-
-		for (const color of colors) {
-			let isDuplicate = false;
-
-			for (const uniqueColor of result) {
-				const distance = Math.sqrt(
-					Math.pow(
-						color.rgb[0] -
-							uniqueColor.rgb[0],
-						2
-					) +
-						Math.pow(
-							color.rgb[1] -
-								uniqueColor
-									.rgb[1],
-							2
-						) +
-						Math.pow(
-							color.rgb[2] -
-								uniqueColor
-									.rgb[2],
-							2
-						)
-				);
-
-				if (distance < threshold) {
-					isDuplicate = true;
-					break;
+				if (!isDuplicate) {
+					result.push(color);
+					if (result.length >= 6) break;
 				}
 			}
 
-			if (!isDuplicate) {
-				result.push(color);
-				if (result.length >= 6) break;
-			}
-		}
-
-		return result;
-	};
+			return result;
+		},
+		[]
+	);
 
 	// Convertir RGB en HEX
-	const rgbToHex = (r: number, g: number, b: number): string => {
-		return (
-			"#" +
-			((1 << 24) | (r << 16) | (g << 8) | b)
-				.toString(16)
-				.slice(1)
-		);
-	};
+	const rgbToHex = useCallback(
+		(r: number, g: number, b: number): string => {
+			return (
+				"#" +
+				((1 << 24) | (r << 16) | (g << 8) | b)
+					.toString(16)
+					.slice(1)
+			);
+		},
+		[]
+	);
+
+	// Extraction de couleurs à partir de l'image
+	const extractColors = useCallback(
+		(url: string): void => {
+			const img = new Image();
+			img.crossOrigin = "Anonymous";
+
+			img.onload = () => {
+				const canvas = document.createElement("canvas");
+				const ctx = canvas.getContext("2d", {
+					willReadFrequently: true,
+				});
+				canvas.width = img.width;
+				canvas.height = img.height;
+
+				if (ctx) {
+					ctx.drawImage(img, 0, 0);
+
+					// Carte de fréquence des couleurs
+					const colorFrequency: Record<
+						string,
+						{ count: number; rgb: number[] }
+					> = {};
+
+					// Échantillonnage de pixels
+					const pixelData = ctx.getImageData(
+						0,
+						0,
+						canvas.width,
+						canvas.height
+					).data;
+					const step = Math.max(
+						1,
+						Math.floor(
+							(canvas.width *
+								canvas.height) /
+								2000
+						)
+					);
+
+					// Analyser les pixels et compter les fréquences des couleurs
+					for (
+						let i = 0;
+						i < pixelData.length;
+						i += 4 * step
+					) {
+						const r = pixelData[i];
+						const g = pixelData[i + 1];
+						const b = pixelData[i + 2];
+						const a = pixelData[i + 3];
+
+						// Ignorer les pixels transparents ou blancs
+						if (
+							a < 200 ||
+							(r > 240 &&
+								g > 240 &&
+								b > 240)
+						)
+							continue;
+
+						const key = `${r},${g},${b}`;
+						if (colorFrequency[key]) {
+							colorFrequency[key]
+								.count++;
+						} else {
+							colorFrequency[key] = {
+								count: 1,
+								rgb: [r, g, b],
+							};
+						}
+					}
+
+					// Trier les couleurs par fréquence
+					const sortedColors = Object.values(
+						colorFrequency
+					).sort((a, b) => b.count - a.count);
+
+					// Filtrer les couleurs similaires (éviter les doublons visuels)
+					const distinctColors =
+						filterSimilarColors(
+							sortedColors,
+							30
+						);
+
+					// Prendre les 6 premières couleurs distinctes ou compléter avec des couleurs génériques
+					const colorEntries =
+						distinctColors.slice(0, 6);
+
+					// Compléter si nécessaire pour avoir 6 couleurs
+					while (colorEntries.length < 6) {
+						const index =
+							colorEntries.length;
+						const defaultColors = [
+							[255, 100, 100], // Rouge clair
+							[100, 255, 100], // Vert clair
+							[100, 100, 255], // Bleu clair
+							[255, 255, 100], // Jaune
+							[255, 100, 255], // Magenta
+							[100, 255, 255], // Cyan
+						];
+						colorEntries.push({
+							count: 0,
+							rgb: defaultColors[
+								index %
+									defaultColors.length
+							],
+						});
+					}
+
+					// Créer palette à partir des couleurs extraites
+					const colorNames = [
+						"Primary",
+						"Secondary",
+						"Tertiary",
+						"Quaternary",
+						"Quinary",
+						"Senary",
+					];
+					const swatches: SwatchWithName[] =
+						colorEntries.map(
+							(entry, index) => {
+								const hexColor =
+									rgbToHex(
+										entry
+											.rgb[0],
+										entry
+											.rgb[1],
+										entry
+											.rgb[2]
+									);
+								return {
+									name: colorNames[
+										index
+									],
+									color: hexColor,
+								};
+							}
+						);
+
+					setPalette(swatches);
+
+					if (swatches.length > 0) {
+						setSelectedColor(
+							convertToAllFormats(
+								swatches[0]
+									.color
+							)
+						);
+					}
+				}
+			};
+
+			img.onerror = () => {
+				console.error(
+					"Erreur lors du chargement de l'image pour l'extraction des couleurs"
+				);
+				setError(true);
+			};
+
+			img.src = url;
+		},
+		[filterSimilarColors, rgbToHex, convertToAllFormats]
+	);
 
 	// Extraire la palette de couleurs au chargement ou changement d'URL
 	useEffect(() => {
@@ -337,23 +362,6 @@ export default function ColorPalette({ imageUrl }: ColorPaletteProps) {
 										selectedColor.hex,
 								}}
 							/>
-							<div>
-								<h3 className="font-medium">
-									Selected
-									Color
-								</h3>
-								<p className="text-sm text-gray-500 dark:text-gray-400">
-									{palette.find(
-										(
-											p
-										) =>
-											p.color ===
-											selectedColor.hex
-									)
-										?.name ||
-										"Custom"}
-								</p>
-							</div>
 						</div>
 
 						<div className="flex gap-2">
