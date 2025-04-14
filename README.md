@@ -29,7 +29,7 @@ Palette Town extracts color schemes from the original 151 Pokémon, offering the
 
 ```javascript
 // Get Pikachu's colors
-fetch('https://palette-town.example.com/api/pokemon/25')
+fetch('https://palette-townxd.vercel.app/api/pokemon/25')
   .then(response => response.json())
   .then(data => {
     // Use the color data
