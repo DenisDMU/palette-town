@@ -10,12 +10,7 @@ export default function Hero() {
 	const [isLoading, setIsLoading] = useState(false);
 	const inputRef = useRef<HTMLInputElement>(null);
 
-	// Focus l'input au chargement
-	useEffect(() => {
-		if (inputRef.current) {
-			inputRef.current.focus();
-		}
-	}, []);
+	
 
 	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		setSearchQuery(e.target.value);
