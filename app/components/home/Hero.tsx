@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef} from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { LucideSearch } from "lucide-react";
